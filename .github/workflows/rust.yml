@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: ["main"]
+    #branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -12,7 +12,24 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - 1.83.0
+          - stable
+          - beta
+          - nightly
+        features:
+          - ''
+          - '--no-default-features'
+
     steps:
+      - name: Install rust (${{ matrix.rust }})
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
       - uses: actions/checkout@v3
       - name: Check formatting
         run: cargo fmt -- --check
