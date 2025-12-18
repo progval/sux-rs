@@ -53,6 +53,23 @@ impl<D: AsRef<[usize]>> SparseIndex<D> {
         // SAFETY: we just checked it
         Some(unsafe { self.ef.succ_unchecked::<false>(position) })
     }
+
+    fn iter(&self) -> impl Iterator<Item = (usize, usize)> {
+        let mut previous_position: Option<usize> = None;
+        std::iter::repeat(()).map_while(move |()| {
+            let position = match previous_position {
+                None => 0, // first iteration
+                Some(previous_position) => previous_position
+                    .checked_add(1)
+                    .expect("Position overflows usize"),
+            };
+
+            let (index, pos) = self.get_next_pos(position)?;
+            previous_position = Some(pos);
+
+            Some((index, pos))
+        })
+    }
 }
 
 type DenseIndex = Rank9<BitVec<Box<[usize]>>>;

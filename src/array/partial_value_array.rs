@@ -315,6 +315,31 @@ impl<T: Clone, V: SliceByValue<Value = T>> PartialValueArray<T, DenseIndex, V> {
         // SAFETY: necessarily value_index < num_values().
         Some(unsafe { self.values.get_value_unchecked(value_index) })
     }
+
+    /// Returns an iterator on all `(position, value)` pairs in the array.
+    ///
+    /// This is equivalent to `(0..self.len()).flat_map(|i| self.get(i))`.
+    pub fn entries(&self) -> impl Iterator<Item = (usize, T)> {
+        self.index
+            .iter()
+            .enumerate()
+            .flat_map(|(position, present)| if present { Some(position) } else { None })
+            .enumerate()
+            .map(|(value_index, position)| {
+                // SAFETY: necessarily value_index < num_values().
+                (position, unsafe {
+                    self.values.get_value_unchecked(value_index)
+                })
+            })
+    }
+
+    /// Returns an iterator on position (aka keys) that have an associated value
+    pub fn positions(&self) -> impl Iterator<Item = usize> {
+        self.index
+            .iter()
+            .enumerate()
+            .flat_map(|(i, present)| if present { Some(i) } else { None })
+    }
 }
 
 impl<T: Clone, D: AsRef<[usize]>, V: SliceByValue<Value = T>>
@@ -362,5 +387,35 @@ impl<T: Clone, D: AsRef<[usize]>, V: SliceByValue<Value = T>>
             // SAFETY: necessarily value_index < num values.
             Some(unsafe { self.values.get_value_unchecked(value_index) })
         }
+    }
+
+    /// Returns an iterator on all `(position, value)` pairs in the array.
+    ///
+    /// This is equivalent to `(0..self.len()).flat_map(|i| self.get(i))` but more efficient, by
+    /// skipping over empty ranges of positions.
+    pub fn entries(&self) -> impl Iterator<Item = (usize, T)> {
+        self.index.iter().map(|(index, pos)|
+            // SAFETY: necessarily value_index < num values.
+            (pos, unsafe { self.values.get_value_unchecked(index) }))
+    }
+
+    /// Returns an iterator on position (aka keys) that have an associated value
+    pub fn positions(&self) -> impl Iterator<Item = usize> {
+        self.index.iter().map(|(_index, pos)| pos)
+    }
+}
+
+impl<T: Clone, D: AsRef<[usize]>, V: SliceByValue<Value = T>> SliceByValue
+    for PartialValueArray<T, SparseIndex<D>, V>
+{
+    type Value = T;
+
+    fn len(&self) -> usize {
+        self.values.len()
+    }
+
+    unsafe fn get_value_unchecked(&self, index: usize) -> Self::Value {
+        // SAFETY: the caller guarantees that index < len()
+        unsafe { self.values.get_value_unchecked(index) }.clone()
     }
 }

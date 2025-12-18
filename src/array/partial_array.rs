@@ -340,41 +340,19 @@ impl<T, D: AsRef<[usize]>, V: AsRef<[T]>> PartialArray<T, SparseIndex<D>, V> {
         }
     }
 
-    /// Given a `position`, returns the first `(index, position2)` with `position2 >= position`
-    fn get_next_pos(&self, position: usize) -> Option<(usize, usize)> {
-        if position >= self.index.first_invalid_pos {
-            panic_if_out_of_bounds!(position, self.len());
-            return None;
-        }
-        // Check if there's a value at this position
-        // SAFETY: position <= last set position
-        Some(unsafe { self.index.ef.succ_unchecked::<false>(position) })
-    }
-
     /// Returns an iterator on all `(position, value)` pairs in the array.
     ///
     /// This is equivalent to `(0..self.len()).flat_map(|i| self.get(i))` but more efficient, by
     /// skipping over empty ranges of positions.
     pub fn entries(&self) -> impl Iterator<Item = (usize, &T)> {
-        let mut previous_position: Option<usize> = None;
-        std::iter::repeat(()).map_while(move |()| {
-            let position = match previous_position {
-                None => 0, // first iteration
-                Some(previous_position) => previous_position
-                    .checked_add(1)
-                    .expect("Position overflows usize"),
-            };
-            let (index, pos) = self.get_next_pos(position)?;
-            previous_position = Some(pos);
-
+        self.index.iter().map(|(index, pos)|
             // SAFETY: necessarily value_index < num values.
-            Some((pos, unsafe { self.values.as_ref().get_unchecked(index) }))
-        })
+            (pos, unsafe { self.values.as_ref().get_unchecked(index) }))
     }
 
     /// Returns an iterator on position (aka keys) that have an associated value
     pub fn positions(&self) -> impl Iterator<Item = usize> {
-        self.entries().map(|(position, _value)| position)
+        self.index.iter().map(|(_index, pos)| pos)
     }
 }
 
